@@ -1,13 +1,16 @@
 package implement
 
-import "fmt"
+import (
+	"fmt"
+	"bytes"
+	"strings"
+)
 
 type Options struct {
 	InputPath string
 	OutputPath string
 	OverwriteExisting bool
-	Interfaces []string
-	Implementors []string
+	ImplementorMap map[string]string
 	NameOptions *NameOptions
 }
 
@@ -24,30 +27,44 @@ func DefaultNameOptions() *NameOptions {
 	return &NameOptions{FirstLetterAndNumbers}
 }
 
-
-func (o *Options) Validate() error {
-	if len(o.Interfaces) != len(o.Implementors) {
-		return ErrInvalidLengths
-	}
-	return nil
+type Interface struct {
+	Name string
+	ImplementedName string
+	Functions []*FunctionSignature
 }
 
-const (
-	Func = "func"
-	Struct = "struct"
-	Interface = "interface"
-)
+func (i *Interface) Implement() string {
+	buf := bytes.NewBuffer([]byte{})
+
+	// write struct name
+	buf.WriteString(fmt.Sprintf("type %s struct {}\n\n", i.ImplementedName))
+	for _, f := range i.Functions {
+		if len(i.ImplementedName) == 0 {
+			i.ImplementedName = " "
+		}
+		buf.WriteString(fmt.Sprintf("func(%s *%s) %s(", strings.ToLower(string(i.ImplementedName[0])), i.ImplementedName, f.Name))
+		for _, p := range f.Parameters {
+			buf.WriteString(p.Name + " " + p.Type)
+		}
+		buf.WriteString(") ")
+
+		for _, r := range f.ReturnValues {
+			buf.WriteString(r.Name + " " + r.Type)
+		}
+		buf.WriteString("{\n}\n")
+	}
+	return buf.String()
+}
+
+func (i *Interface) String() string {
+	return i.Implement()
+}
 
 type FunctionSignature struct {
 	Name string
 	Parameters []*Parameter
 	ReturnValues []*ReturnValue
 	NameOptions *NameOptions
-
-}
-
-func (f *FunctionSignature) String() string {
-
 }
 
 type Parameter struct {

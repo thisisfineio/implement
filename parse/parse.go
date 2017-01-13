@@ -4,11 +4,10 @@ import (
 	"go/token"
 	"go/parser"
 	"go/ast"
-	"fmt"
 	"io/ioutil"
 	"github.com/thisisfineio/implement"
 	"strings"
-	"unicode"
+	//"reflect"
 )
 
 // Parse returns an *ast.File, and an error
@@ -28,60 +27,36 @@ func File(filename string) (*ast.File, []byte, error) {
 
 // Inspect visits all nodes in the *ast.File (recursively)
 // data is necessary for us to determine interface names
-func Inspect(f *ast.File, data []byte) ([]byte, error) {
-	fmt.Println()
+func Inspect(f *ast.File, data []byte) (map[string][]*implement.FunctionSignature, error) {
 	signatures := make(map[string][]*implement.FunctionSignature)
+	var lastIdent string
 	ast.Inspect(f, func(n ast.Node) bool {
 		//fmt.Println(n)
 		switch  t := n.(type) {
+		case *ast.Ident:
+			lastIdent = t.Name
 		// top level interface definition
 		case *ast.InterfaceType:
-			interfaceName := getInterfaceName(t.Pos(), data)
 			sigs := make([]*implement.FunctionSignature, 0)
-			for i, f := range t.Methods.List {
-				fmt.Println("Function", i)
-				//fmt.Println(f)
+			for _, f := range t.Methods.List {
 				name := getFunctionName(f.Pos(), f.End(), data)
-				fmt.Println(name)
 				sig := FunctionSignature(f.Type)
+
 				sig.Name = name
 				sigs = append(sigs, sig)
 			}
-			signatures[interfaceName] = sigs
+			signatures[lastIdent] = sigs
 		}
 		return true
 	})
-	for k, v := range signatures {
-		fmt.Println("Interface:", k)
-		for _, f := range v {
-			fmt.Println(f)
-		}
-	}
-	return []byte{}, nil
+	return signatures, nil
 }
 
 func getFunctionName(start, end token.Pos, data []byte) string {
 	return strings.Split(string(data[start - 1: end -1]), "(")[0]
 }
 
-// todo - does not work, need to scan backwards from start to find the second space
-func getInterfaceName(start token.Pos, data []byte) string {
-	cur := start
-	spaceFound := false
-	for cur != -1 {
-		if unicode.IsSpace(rune(data[cur])) {
-			if spaceFound {
-				return string(data[cur+1:start -1])
-				break
-			}
-			spaceFound = true
-		}
-		cur--
-	}
-	return ""
-}
-
-func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
+func FunctionSignature(expr ast.Expr) (*implement.FunctionSignature) {
 	signature := &implement.FunctionSignature{}
 	switch n := expr.(type) {
 	// the top level function
@@ -89,10 +64,7 @@ func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
 		if n.Params != nil {
 			//letterMap := make(map[string]int)
 			for _, p := range n.Params.List {
-				s, err := getTypeIdentifier(p.Type)
-				if err != nil {
-					fmt.Println(err)
-				}
+				s := getTypeIdentifier(p.Type)
 				for _, n := range p.Names {
 					param := &implement.Parameter{Name: n.Name, Type: s}
 					signature.Parameters = append(signature.Parameters, param)
@@ -104,15 +76,11 @@ func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
 				}
 
 			}
-			fmt.Println()
 		}
 
 		if n.Results != nil {
 			for _, r := range n.Results.List {
-				s, err := getTypeIdentifier(r.Type)
-				if err != nil {
-					fmt.Println(err)
-				}
+				s := getTypeIdentifier(r.Type)
 				for _, n := range r.Names {
 					result := &implement.ReturnValue{Name: n.Name, Type: s}
 					signature.ReturnValues = append(signature.ReturnValues, result)
@@ -139,31 +107,22 @@ func lowerFirstLetterOfVar(s string) string {
 	return firstLetter
 }
 
-func getTypeIdentifier(expr ast.Expr) (string, error) {
+func getTypeIdentifier(expr ast.Expr) string {
 
 	switch t := expr.(type) {
 	case *ast.Ident:
-		return t.String(), nil
+		return t.String()
 	case *ast.StarExpr:
-		s, err := getTypeIdentifier(t.X)
-		if err != nil {
-			return "", err
-		}
-		return "*" + s,  nil
+		s := getTypeIdentifier(t.X)
+		return "*" + s
 	case *ast.SelectorExpr:
-		s, err := getTypeIdentifier(t.X)
-		if err != nil {
-			return "", err
-		}
-		return s + "." + t.Sel.String(), nil
+		s := getTypeIdentifier(t.X)
+		return s + "." + t.Sel.String()
 	case *ast.FuncType:
 		var typ = "func("
 		if t.Params != nil {
 			for _, p := range t.Params.List {
-				s, err := getTypeIdentifier(p.Type)
-				if err != nil {
-					return "", err
-				}
+				s := getTypeIdentifier(p.Type)
 				if len(p.Names) > 0 {
 					for i := range p.Names {
 						typ += s
@@ -184,10 +143,7 @@ func getTypeIdentifier(expr ast.Expr) (string, error) {
 			}
 
 			for i, r := range t.Results.List {
-				s, err := getTypeIdentifier(r.Type)
-				if err != nil {
-					return "", err
-				}
+				s := getTypeIdentifier(r.Type)
 				typ += s
 				if len(t.Results.List) > 1 && i != len(t.Results.List) - 1 {
 					typ += ", "
@@ -198,25 +154,10 @@ func getTypeIdentifier(expr ast.Expr) (string, error) {
 				typ += ")"
 			}
 		}
-		return typ, nil
+		return typ
 
 	case *ast.InterfaceType:
-		return "interface{}", nil
+		return "interface{}"
 	}
-
-	return "", nil
+	return ""
 }
-
-//func getVarName(o *implement.Options, letterMap map[string]int) string {
-//
-//}
-
-//func Params(buffer string) ([]*implement.Parameter, error) {
-//	split := strings.Split(buffer, ",")
-//
-//
-//}
-//
-//func Returns(buffer string) ([]*implement.ReturnValue, error) {
-//
-//}
