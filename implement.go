@@ -16,3 +16,25 @@ func (o *Options) Validate() error {
 	}
 	return nil
 }
+
+const (
+	Func = "func"
+	Struct = "struct"
+	Interface = "interface"
+)
+
+type FunctionSignature struct {
+	Name string
+	Parameters []*Parameter
+	ReturnValues []*ReturnValue
+}
+
+type Parameter struct {
+	Type string
+	Name string
+}
+
+type ReturnValue struct {
+	Type string
+	Name string
+}
