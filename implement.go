@@ -29,6 +29,10 @@ type FunctionSignature struct {
 	ReturnValues []*ReturnValue
 }
 
+func (f *FunctionSignature) String() string {
+return ""
+}
+
 type Parameter struct {
 	Type string
 	Name string
