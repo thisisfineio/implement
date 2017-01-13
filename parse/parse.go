@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"github.com/thisisfineio/implement"
 	"strings"
+	"unicode"
 )
 
 // Parse returns an *ast.File, and an error
@@ -35,8 +36,7 @@ func Inspect(f *ast.File, data []byte) ([]byte, error) {
 		switch  t := n.(type) {
 		// top level interface definition
 		case *ast.InterfaceType:
-			interfaceName := getInterfaceName(t.Interface, t.End(), data)
-			fmt.Println("Interface:", interfaceName)
+			interfaceName := getInterfaceName(t.Pos(), data)
 			sigs := make([]*implement.FunctionSignature, 0)
 			for i, f := range t.Methods.List {
 				fmt.Println("Function", i)
@@ -51,6 +51,12 @@ func Inspect(f *ast.File, data []byte) ([]byte, error) {
 		}
 		return true
 	})
+	for k, v := range signatures {
+		fmt.Println("Interface:", k)
+		for _, f := range v {
+			fmt.Println(f)
+		}
+	}
 	return []byte{}, nil
 }
 
@@ -59,8 +65,20 @@ func getFunctionName(start, end token.Pos, data []byte) string {
 }
 
 // todo - does not work, need to scan backwards from start to find the second space
-func getInterfaceName(start, end token.Pos, data []byte) string {
-	return strings.Split(string(data[start -1:end -1]), "{")[0]
+func getInterfaceName(start token.Pos, data []byte) string {
+	cur := start
+	spaceFound := false
+	for cur != -1 {
+		if unicode.IsSpace(rune(data[cur])) {
+			if spaceFound {
+				return string(data[cur+1:start -1])
+				break
+			}
+			spaceFound = true
+		}
+		cur--
+	}
+	return ""
 }
 
 func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
@@ -69,15 +87,12 @@ func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
 	// the top level function
 	case *ast.FuncType:
 		if n.Params != nil {
-			fmt.Println("Params")
 			//letterMap := make(map[string]int)
 			for _, p := range n.Params.List {
 				s, err := getTypeIdentifier(p.Type)
 				if err != nil {
 					fmt.Println(err)
 				}
-
-				fmt.Println(s)
 				for _, n := range p.Names {
 					param := &implement.Parameter{Name: n.Name, Type: s}
 					signature.Parameters = append(signature.Parameters, param)
@@ -93,10 +108,7 @@ func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
 		}
 
 		if n.Results != nil {
-			fmt.Println("Returns")
 			for _, r := range n.Results.List {
-				//result := &implement.ReturnValue{}
-				//fmt.Println(r.Names)
 				s, err := getTypeIdentifier(r.Type)
 				if err != nil {
 					fmt.Println(err)
@@ -111,7 +123,6 @@ func FunctionSignature(expr ast.Expr) *implement.FunctionSignature {
 					signature.ReturnValues = append(signature.ReturnValues, result)
 				}
 			}
-			fmt.Println()
 		}
 	}
 	return signature

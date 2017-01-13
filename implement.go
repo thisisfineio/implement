@@ -1,5 +1,6 @@
 package implement
 
+import "fmt"
 
 type Options struct {
 	InputPath string
@@ -7,6 +8,20 @@ type Options struct {
 	OverwriteExisting bool
 	Interfaces []string
 	Implementors []string
+	NameOptions *NameOptions
+}
+
+const (
+	FirstLetterAndNumbers = iota
+	FullIdentityName
+)
+
+type NameOptions struct {
+	ParameterOpt int
+}
+
+func DefaultNameOptions() *NameOptions {
+	return &NameOptions{FirstLetterAndNumbers}
 }
 
 
@@ -27,10 +42,12 @@ type FunctionSignature struct {
 	Name string
 	Parameters []*Parameter
 	ReturnValues []*ReturnValue
+	NameOptions *NameOptions
+
 }
 
 func (f *FunctionSignature) String() string {
-return ""
+
 }
 
 type Parameter struct {
