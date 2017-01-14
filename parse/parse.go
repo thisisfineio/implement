@@ -27,7 +27,7 @@ func File(filename string) (*ast.File, []byte, error) {
 
 // Inspect visits all nodes in the *ast.File (recursively)
 // data is necessary for us to determine interface names
-func Inspect(f *ast.File, data []byte) (map[string][]*implement.FunctionSignature, error) {
+func Inspect(f *ast.File, data []byte) map[string][]*implement.FunctionSignature {
 	signatures := make(map[string][]*implement.FunctionSignature)
 	var lastIdent string
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -49,7 +49,7 @@ func Inspect(f *ast.File, data []byte) (map[string][]*implement.FunctionSignatur
 		}
 		return true
 	})
-	return signatures, nil
+	return signatures
 }
 
 func getFunctionName(start, end token.Pos, data []byte) string {

@@ -18,7 +18,7 @@ func TestInspect(t *testing.T) {
 	Convey("We can parse a file and inspect it for its interfaces", t, func(){
 		f, data, err := File(path + string(os.PathSeparator) + "data.go")
 		So(err, ShouldBeNil)
-		signatures, err := Inspect(f, data)
+		signatures := Inspect(f, data)
 		So(err, ShouldBeNil)
 		m := make(map[string]string)
 		m["TestInterface"] = "Implementation"
