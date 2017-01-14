@@ -8,6 +8,7 @@ import (
 	"github.com/thisisfineio/implement"
 	"strings"
 	//"reflect"
+	"fmt"
 )
 
 // Parse returns an *ast.File, and an error
@@ -107,6 +108,8 @@ func lowerFirstLetterOfVar(s string) string {
 	return firstLetter
 }
 
+
+// TODO - refactor to return *implement.Type instead of string :(
 func getTypeIdentifier(expr ast.Expr) string {
 
 	switch t := expr.(type) {

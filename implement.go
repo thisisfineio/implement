@@ -27,10 +27,23 @@ func DefaultNameOptions() *NameOptions {
 	return &NameOptions{FirstLetterAndNumbers}
 }
 
+
+const (
+	PointerType = iota
+	FuncType
+	ValueType
+)
+
+type Type struct {
+	T int
+	Value string
+}
+
 type Interface struct {
 	Name string
 	ImplementedName string
 	Functions []*FunctionSignature
+	NameOptions *NameOptions
 }
 
 // TODO - finish this!!!

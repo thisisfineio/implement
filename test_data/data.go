@@ -21,6 +21,7 @@ type TestInterface interface {
 	FunctionParamAndReturn(f func(i int) (interface{}, error)) (*Struct, error)
 	AnonymousFuncs(func(func(i, j int) func()) func(i int)) func(int) // efffffff recursion hell
 	PackageStruct(*bytes.Buffer) *bytes.Reader
+	ValueFunc(Struct) Struct
 }
 
 type IgnoredInterface interface {
