@@ -33,6 +33,7 @@ type Interface struct {
 	Functions []*FunctionSignature
 }
 
+// TODO - finish this!!!
 func (i *Interface) Implement() string {
 	buf := bytes.NewBuffer([]byte{})
 
@@ -60,11 +61,22 @@ func (i *Interface) String() string {
 	return i.Implement()
 }
 
+func GetInterfaces(signatures map[string][]*FunctionSignature, m map[string]string) []*Interface {
+	interfaces := make([]*Interface, 0)
+	for k, v := range signatures {
+		if _, ok := m[k]; !ok {
+			continue
+		}
+		i := &Interface{Name: k, ImplementedName: m[k], Functions: v}
+		interfaces = append(interfaces, i)
+	}
+	return interfaces
+}
+
 type FunctionSignature struct {
 	Name string
 	Parameters []*Parameter
 	ReturnValues []*ReturnValue
-	NameOptions *NameOptions
 }
 
 type Parameter struct {
