@@ -8,7 +8,6 @@ import (
 	"github.com/thisisfineio/implement"
 	"strings"
 	//"reflect"
-	"fmt"
 )
 
 // Parse returns an *ast.File, and an error
