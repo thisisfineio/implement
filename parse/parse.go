@@ -8,6 +8,7 @@ import (
 	"github.com/thisisfineio/implement"
 	"strings"
 	//"reflect"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Parse returns an *ast.File, and an error
@@ -96,28 +97,18 @@ func FunctionSignature(expr ast.Expr) (*implement.FunctionSignature) {
 	return signature
 }
 
-func lowerFirstLetterOfVar(s string) string {
-	split := strings.Split(s, "*")
-	var firstLetter string
-	if len(split) > 1 {
-		firstLetter = strings.ToLower(split[1])
-	} else {
-		firstLetter = strings.ToLower(split[0])
-	}
-	return firstLetter
-}
-
-
-// TODO - refactor to return *implement.Type instead of string :(
 func getTypeIdentifier(expr ast.Expr) string {
 
 	switch t := expr.(type) {
 	case *ast.Ident:
+		spew.Dump(t.Obj)
 		return t.String()
 	case *ast.StarExpr:
+		spew.Dump(t)
 		s := getTypeIdentifier(t.X)
 		return "*" + s
 	case *ast.SelectorExpr:
+		spew.Dump(t)
 		s := getTypeIdentifier(t.X)
 		return s + "." + t.Sel.String()
 	case *ast.FuncType:
@@ -159,7 +150,10 @@ func getTypeIdentifier(expr ast.Expr) string {
 		return typ
 
 	case *ast.InterfaceType:
+		spew.Dump(t)
 		return "interface{}"
+	default:
+		spew.Dump(t)
 	}
 	return ""
 }

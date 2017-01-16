@@ -57,17 +57,72 @@ func (i *Interface) Implement() string {
 			i.ImplementedName = " "
 		}
 		buf.WriteString(fmt.Sprintf("func(%s *%s) %s(", strings.ToLower(string(i.ImplementedName[0])), i.ImplementedName, f.Name))
-		for _, p := range f.Parameters {
-			buf.WriteString(p.Name + " " + p.Type)
+		for index, p := range f.Parameters {
+			if index == len(f.Parameters) - 1 {
+				buf.WriteString(p.NameT(i.NameOptions) + " " + p.Type)
+			} else {
+				buf.WriteString(p.NameT(i.NameOptions) + " " + p.Type + ", ")
+			}
+
 		}
 		buf.WriteString(") ")
-
-		for _, r := range f.ReturnValues {
-			buf.WriteString(r.Name + " " + r.Type)
+		if len(f.ReturnValues) > 1 {
+			buf.WriteString("(")
 		}
-		buf.WriteString("{\n}\n")
+		for i, r := range f.ReturnValues {
+
+			if i == len(f.ReturnValues) - 1 {
+				buf.WriteString(r.Name + " " + r.Type)
+			} else {
+				buf.WriteString(r.Name + " " + r.Type + ", ")
+			}
+		}
+
+		if len(f.ReturnValues) > 1 {
+			buf.WriteString(")")
+		}
+		buf.WriteString("{\n")
+
+		for i, r := range f.ReturnValues {
+			if i == 0 {
+				buf.WriteString("return ")
+			}
+
+			if i == len(f.ReturnValues) - 1 {
+				buf.WriteString(ZeroValueString(r.Type))
+			} else {
+				buf.WriteString(ZeroValueString(r.Type) + ", ")
+			}
+
+		}
+		buf.WriteString("\n}\n")
 	}
 	return buf.String()
+}
+
+func ZeroValueString(s string) string {
+	fmt.Println(s)
+	switch {
+	case strings.Contains(s, "func"):
+		return "nil"
+	case strings.Contains(s, "*"):
+		return "nil"
+	case strings.Contains(s, "int"),
+		strings.Contains(s, "float"),
+		strings.Contains(s, "complex"),
+		strings.Contains(s, "byte"),
+		strings.Contains(s, "rune"):
+		return "0"
+	case strings.Contains(s, "bool"):
+		return "false"
+	case strings.Contains(s, "string"):
+		return "\"\""
+	case strings.Contains(s, "error"):
+		return "nil"
+	default:
+		return s + "{}"
+
+	}
 }
 
 func (i *Interface) String() string {
@@ -95,6 +150,35 @@ type FunctionSignature struct {
 type Parameter struct {
 	Type string
 	Name string
+}
+
+func LowerFirstLetterOfVar(s string) string {
+	split := strings.Split(s, ".")
+	if len(split) > 1 {
+		return strings.ToLower(string(split[1][0]))
+	}
+	split = strings.Split(s, "*")
+	if len(split) > 1 {
+		return strings.ToLower(string(split[1][0]))
+	}
+	return strings.ToLower(string(s[0]))
+}
+
+func (p *Parameter) NameT(opts *NameOptions) string {
+	if p.Name != "" {
+		return p.Name
+	}
+	if opts == nil {
+		opts = DefaultNameOptions()
+	}
+	switch opts.ParameterOpt {
+
+	case FirstLetterAndNumbers:
+		return LowerFirstLetterOfVar(p.Type)
+	case FullIdentityName:
+		return ""
+	}
+	return ""
 }
 
 type ReturnValue struct {
