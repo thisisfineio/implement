@@ -8,7 +8,6 @@ import (
 	"github.com/thisisfineio/implement"
 	"strings"
 	//"reflect"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Parse returns an *ast.File, and an error
@@ -101,14 +100,11 @@ func getTypeIdentifier(expr ast.Expr) string {
 
 	switch t := expr.(type) {
 	case *ast.Ident:
-		spew.Dump(t.Obj)
 		return t.String()
 	case *ast.StarExpr:
-		spew.Dump(t)
 		s := getTypeIdentifier(t.X)
 		return "*" + s
 	case *ast.SelectorExpr:
-		spew.Dump(t)
 		s := getTypeIdentifier(t.X)
 		return s + "." + t.Sel.String()
 	case *ast.FuncType:
@@ -150,10 +146,8 @@ func getTypeIdentifier(expr ast.Expr) string {
 		return typ
 
 	case *ast.InterfaceType:
-		spew.Dump(t)
 		return "interface{}"
 	default:
-		spew.Dump(t)
 	}
 	return ""
 }

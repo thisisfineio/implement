@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"bytes"
 	"strings"
+	"go/format"
+	"io/ioutil"
 )
 
 type Options struct {
@@ -46,7 +48,6 @@ type Interface struct {
 	NameOptions *NameOptions
 }
 
-// TODO - finish this!!!
 func (i *Interface) Implement() string {
 	buf := bytes.NewBuffer([]byte{})
 
@@ -100,8 +101,12 @@ func (i *Interface) Implement() string {
 	return buf.String()
 }
 
+func (i *Interface) Save(filepath string) error {
+	data := i.Data()
+	ioutil.WriteFile(filepath, data, )
+}
+
 func ZeroValueString(s string) string {
-	fmt.Println(s)
 	switch {
 	case strings.Contains(s, "func"):
 		return "nil"
@@ -126,7 +131,12 @@ func ZeroValueString(s string) string {
 }
 
 func (i *Interface) String() string {
-	return i.Implement()
+	data, _ := format.Source([]byte(i.Implement()))
+	return string(data)
+}
+
+func (i *Interface) Data() []byte {
+	return []byte(i.String())
 }
 
 func GetInterfaces(signatures map[string][]*FunctionSignature, m map[string]string) []*Interface {
