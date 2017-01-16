@@ -6,6 +6,11 @@ import (
 	"strings"
 	"go/format"
 	"io/ioutil"
+	"os"
+	"errors"
+	"go/ast"
+	"go/token"
+	"go/parser"
 )
 
 type Options struct {
@@ -14,6 +19,10 @@ type Options struct {
 	OverwriteExisting bool
 	ImplementorMap map[string]string
 	NameOptions *NameOptions
+}
+
+func DefaultOptions() *Options {
+	return &Options{NameOptions: DefaultNameOptions(), OverwriteExisting: false}
 }
 
 const (
@@ -45,10 +54,13 @@ type Interface struct {
 	Name string
 	ImplementedName string
 	Functions []*FunctionSignature
-	NameOptions *NameOptions
+	Options *Options
 }
 
 func (i *Interface) Implement() string {
+	if i.Options == nil {
+		i.Options = DefaultOptions()
+	}
 	buf := bytes.NewBuffer([]byte{})
 
 	// write struct name
@@ -60,9 +72,9 @@ func (i *Interface) Implement() string {
 		buf.WriteString(fmt.Sprintf("func(%s *%s) %s(", strings.ToLower(string(i.ImplementedName[0])), i.ImplementedName, f.Name))
 		for index, p := range f.Parameters {
 			if index == len(f.Parameters) - 1 {
-				buf.WriteString(p.NameT(i.NameOptions) + " " + p.Type)
+				buf.WriteString(p.NameT(i.Options.NameOptions) + " " + p.Type)
 			} else {
-				buf.WriteString(p.NameT(i.NameOptions) + " " + p.Type + ", ")
+				buf.WriteString(p.NameT(i.Options.NameOptions) + " " + p.Type + ", ")
 			}
 
 		}
@@ -101,9 +113,21 @@ func (i *Interface) Implement() string {
 	return buf.String()
 }
 
-func (i *Interface) Save(filepath string) error {
+func (i *Interface) Save(dirpath string) error {
+	filepath := dirpath + string(os.PathSeparator) + i.Name + ".go"
+	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
+		if !i.Options.OverwriteExisting {
+			return errors.New("File exists. If you would like to overwrite it, provide the OverwriteExisting option.")
+		}
+	}
+
 	data := i.Data()
-	ioutil.WriteFile(filepath, data, )
+	split := strings.Split(dirpath, string(os.PathSeparator))
+	d := split[len(split) - 1]
+	pack := "package " + d + "\n"
+	data = append([]byte(pack), data...)
+	return ioutil.WriteFile(filepath, data, 0664)
+
 }
 
 func ZeroValueString(s string) string {
@@ -194,4 +218,148 @@ func (p *Parameter) NameT(opts *NameOptions) string {
 type ReturnValue struct {
 	Type string
 	Name string
+}
+
+
+
+// Parse returns an *ast.File, and an error
+func Parse(data []byte, filename string) (*ast.File, []byte, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filename, data, parser.ParseComments)
+	return f, data, err
+}
+
+func File(filename string) (*ast.File, []byte, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+	return Parse(data, filename)
+}
+
+// Inspect visits all nodes in the *ast.File (recursively)
+// data is necessary for us to determine interface names
+func Inspect(f *ast.File, data []byte) map[string][]*FunctionSignature {
+	signatures := make(map[string][]*FunctionSignature)
+	var lastIdent string
+	ast.Inspect(f, func(n ast.Node) bool {
+		//fmt.Println(n)
+		switch  t := n.(type) {
+		case *ast.Ident:
+			lastIdent = t.Name
+		// top level interface definition
+		case *ast.InterfaceType:
+			sigs := make([]*FunctionSignature, 0)
+			for _, f := range t.Methods.List {
+				name := getFunctionName(f.Pos(), f.End(), data)
+				sig := GetFunctionSignature(f.Type)
+
+				sig.Name = name
+				sigs = append(sigs, sig)
+			}
+			signatures[lastIdent] = sigs
+		}
+		return true
+	})
+	return signatures
+}
+
+func getFunctionName(start, end token.Pos, data []byte) string {
+	return strings.Split(string(data[start - 1: end -1]), "(")[0]
+}
+
+func GetFunctionSignature(expr ast.Expr) (*FunctionSignature) {
+	signature := &FunctionSignature{}
+	switch n := expr.(type) {
+	// the top level function
+	case *ast.FuncType:
+		if n.Params != nil {
+			//letterMap := make(map[string]int)
+			for _, p := range n.Params.List {
+				s := getTypeIdentifier(p.Type)
+				for _, n := range p.Names {
+					param := &Parameter{Name: n.Name, Type: s}
+					signature.Parameters = append(signature.Parameters, param)
+				}
+
+				if len(p.Names) == 0 {
+					param := &Parameter{Type: s}
+					signature.Parameters = append(signature.Parameters, param)
+				}
+
+			}
+		}
+
+		if n.Results != nil {
+			for _, r := range n.Results.List {
+				s := getTypeIdentifier(r.Type)
+				for _, n := range r.Names {
+					result := &ReturnValue{Name: n.Name, Type: s}
+					signature.ReturnValues = append(signature.ReturnValues, result)
+				}
+
+				if len(r.Names) == 0 {
+					result := &ReturnValue{Type: s}
+					signature.ReturnValues = append(signature.ReturnValues, result)
+				}
+			}
+		}
+	}
+	return signature
+}
+
+func getTypeIdentifier(expr ast.Expr) string {
+
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.String()
+	case *ast.StarExpr:
+		s := getTypeIdentifier(t.X)
+		return "*" + s
+	case *ast.SelectorExpr:
+		s := getTypeIdentifier(t.X)
+		return s + "." + t.Sel.String()
+	case *ast.FuncType:
+		var typ = "func("
+		if t.Params != nil {
+			for _, p := range t.Params.List {
+				s := getTypeIdentifier(p.Type)
+				if len(p.Names) > 0 {
+					for i := range p.Names {
+						typ += s
+						if i != len(p.Names) - 1 {
+							typ += ","
+						}
+					}
+
+				} else {
+					typ += s
+				}
+			}
+		}
+		typ += ")"
+		if t.Results != nil {
+			if len(t.Results.List) > 1 {
+				typ += " ("
+			}
+
+			for i, r := range t.Results.List {
+				s := getTypeIdentifier(r.Type)
+				typ += s
+				if len(t.Results.List) > 1 && i != len(t.Results.List) - 1 {
+					typ += ", "
+				}
+			}
+
+			if len(t.Results.List) > 1 {
+				typ += ")"
+			}
+		}
+		return typ
+
+	case *ast.InterfaceType:
+		return "interface{}"
+	default:
+	}
+	return ""
 }
