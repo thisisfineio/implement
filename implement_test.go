@@ -20,47 +20,65 @@ const(
 var (
 	gopath = os.Getenv("GOPATH")
 	path = strings.Join([]string{gopath, "src", "github.com", "thisisfineio", "implement", "test_data"}, string(os.PathSeparator))
+	goroot = os.Getenv("GOROOT")
+	iopath = strings.Join([]string{goroot, "src", "io"}, string(os.PathSeparator))
 )
 
-const expected = `
+const customExpected = `
 type Implementation struct{}
 
 func (i *Implementation) Func() {
 
 }
+
 func (i *Implementation) ParamFunc(s *Struct) {
 
 }
+
 func (i *Implementation) ReturnFunc() string {
 	return ""
 }
+
 func (i *Implementation) MultiIntParam(i int, j int) {
 
 }
+
 func (i *Implementation) TupleFunc() (string, error) {
 	return "", nil
 }
+
 func (i *Implementation) MultiParam(s *Struct, reader io.Reader) {
 
 }
+
 func (i *Implementation) Combo(s *Struct, r io.Reader) (string, error) {
 	return "", nil
 }
+
 func (i *Implementation) FunctionParam(f func(int) (interface{}, error)) {
 
 }
+
 func (i *Implementation) FunctionParamAndReturn(f func(int) (interface{}, error)) (*Struct, error) {
 	return nil, nil
 }
+
 func (i *Implementation) AnonymousFuncs(f func(func(int, int) func()) func(int)) func(int) {
 	return nil
 }
+
 func (i *Implementation) PackageStruct(b *bytes.Buffer) *bytes.Reader {
 	return nil
 }
+
 func (i *Implementation) ValueFunc(s Struct) Struct {
 	return Struct{}
 }
+
+func (i *Implementation) SliceFunc(s []string) []string {
+	return nil
+}
+
 `
 
 
@@ -79,7 +97,7 @@ func TestInspect(t *testing.T) {
 		signatures := Inspect(f, data)
 		So(err, ShouldBeNil)
 
-		interfaces := GetInterfaces(signatures, m)
+		interfaces := Interfaces(signatures, m)
 
 		for _, i := range interfaces {
 			fmt.Println(i.String())
@@ -111,7 +129,7 @@ func TestInterface_Save(t *testing.T) {
 		signatures := Inspect(f, data)
 		So(err, ShouldBeNil)
 
-		interfaces := GetInterfaces(signatures, m)
+		interfaces := Interfaces(signatures, m)
 
 		for _, i := range interfaces {
 			fmt.Println(i.Name)
@@ -123,9 +141,26 @@ func TestInterface_Save(t *testing.T) {
 			So(err, ShouldBeNil)
 			index := strings.Index(string(data), "\n")
 			data =  data[index:]
-			So(string(data), ShouldEqual, expected)
+			So(string(data), ShouldEqual, customExpected)
 			err = os.RemoveAll(d)
 			So(err, ShouldBeNil)
+		}
+	})
+}
+
+func TestIOPackage(t *testing.T) {
+	Convey("We can read the io interface declarations and implement them.", t, func(){
+		f, data, err := File(iopath + string(os.PathSeparator) + "io.go")
+		So(err, ShouldBeNil)
+		signatures := Inspect(f, data)
+		So(err, ShouldBeNil)
+		ma := make(map[string]string)
+		ma["ReadWriter"] = "MyReadWriter"
+		interfaces := Interfaces(signatures, ma)
+
+		for _, i := range interfaces {
+			fmt.Println(i.Name)
+			fmt.Println(i.Implement())
 		}
 	})
 }

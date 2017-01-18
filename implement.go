@@ -108,16 +108,20 @@ func (i *Interface) Implement() string {
 			}
 
 		}
-		buf.WriteString("\n}\n")
+		buf.WriteString("\n}\n\n")
 	}
 	return buf.String()
 }
+
+var (
+	FileExistsErr = errors.New("File exists. If you would like to overwrite it, provide the OverwriteExisting option.")
+)
 
 func (i *Interface) Save(dirpath string) error {
 	filepath := dirpath + string(os.PathSeparator) + i.Name + ".go"
 	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
 		if !i.Options.OverwriteExisting {
-			return errors.New("File exists. If you would like to overwrite it, provide the OverwriteExisting option.")
+			return FileExistsErr
 		}
 	}
 
@@ -134,6 +138,8 @@ func ZeroValueString(s string) string {
 	switch {
 	case strings.Contains(s, "func"):
 		return "nil"
+	case strings.Contains(s, "[]"):
+		return "nil"
 	case strings.Contains(s, "*"):
 		return "nil"
 	case strings.Contains(s, "int"),
@@ -148,6 +154,7 @@ func ZeroValueString(s string) string {
 		return "\"\""
 	case strings.Contains(s, "error"):
 		return "nil"
+
 	default:
 		return s + "{}"
 
@@ -163,7 +170,7 @@ func (i *Interface) Data() []byte {
 	return []byte(i.String())
 }
 
-func GetInterfaces(signatures map[string][]*FunctionSignature, m map[string]string) []*Interface {
+func Interfaces(signatures map[string][]*FunctionSignature, m map[string]string) []*Interface {
 	interfaces := make([]*Interface, 0)
 	for k, v := range signatures {
 		if _, ok := m[k]; !ok {
@@ -192,6 +199,10 @@ func LowerFirstLetterOfVar(s string) string {
 		return strings.ToLower(string(split[1][0]))
 	}
 	split = strings.Split(s, "*")
+	if len(split) > 1 {
+		return strings.ToLower(string(split[1][0]))
+	}
+	split = strings.Split(s, "[]")
 	if len(split) > 1 {
 		return strings.ToLower(string(split[1][0]))
 	}
@@ -252,7 +263,7 @@ func Inspect(f *ast.File, data []byte) map[string][]*FunctionSignature {
 			sigs := make([]*FunctionSignature, 0)
 			for _, f := range t.Methods.List {
 				name := getFunctionName(f.Pos(), f.End(), data)
-				sig := GetFunctionSignature(f.Type)
+				sig := GetFunctionSignatures(f.Type, data)
 
 				sig.Name = name
 				sigs = append(sigs, sig)
@@ -268,11 +279,13 @@ func getFunctionName(start, end token.Pos, data []byte) string {
 	return strings.Split(string(data[start - 1: end -1]), "(")[0]
 }
 
-func GetFunctionSignature(expr ast.Expr) (*FunctionSignature) {
+// TODO - figure out how to actually return this... maybe send finished signatures to a channel instead of returning the function
+func GetFunctionSignatures(expr ast.Expr, data []byte) (*FunctionSignature) {
 	signature := &FunctionSignature{}
 	switch n := expr.(type) {
 	// the top level function
 	case *ast.FuncType:
+		signature.Name = getFunctionName(expr.Pos(), expr.End(), data)
 		if n.Params != nil {
 			//letterMap := make(map[string]int)
 			for _, p := range n.Params.List {
@@ -304,12 +317,26 @@ func GetFunctionSignature(expr ast.Expr) (*FunctionSignature) {
 				}
 			}
 		}
+
+	case *ast.Ident:
+		if t, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
+			switch t := t.Type.(type) {
+			case *ast.InterfaceType:
+				for _, f := range t.Methods.List {
+					sig := GetFunctionSignatures(f.Type, data)
+					fmt.Printf("%+v\n",sig)
+				}
+			}
+		}
+
+
+	default:
+
 	}
 	return signature
 }
 
 func getTypeIdentifier(expr ast.Expr) string {
-
 	switch t := expr.(type) {
 	case *ast.Ident:
 		return t.String()
@@ -359,6 +386,9 @@ func getTypeIdentifier(expr ast.Expr) string {
 
 	case *ast.InterfaceType:
 		return "interface{}"
+	case *ast.ArrayType:
+		s := getTypeIdentifier(t.Elt)
+		return "[]" + s
 	default:
 	}
 	return ""

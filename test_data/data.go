@@ -22,6 +22,7 @@ type TestInterface interface {
 	AnonymousFuncs(func(func(i, j int) func()) func(i int)) func(int) // efffffff recursion hell
 	PackageStruct(*bytes.Buffer) *bytes.Reader
 	ValueFunc(Struct) Struct
+	SliceFunc([]string) []string
 }
 
 type IgnoredInterface interface {
