@@ -162,7 +162,10 @@ func ZeroValueString(s string) string {
 }
 
 func (i *Interface) String() string {
-	data, _ := format.Source([]byte(i.Implement()))
+	data, err := format.Source([]byte(i.Implement()))
+	if err != nil {
+		panic(err)
+	}
 	return string(data)
 }
 
