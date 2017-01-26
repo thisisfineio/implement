@@ -134,13 +134,13 @@ func (i *Interface) Save(dirpath string) error {
 
 }
 
+
 func ZeroValueString(s string) string {
 	switch {
-	case strings.Contains(s, "func"):
-		return "nil"
-	case strings.Contains(s, "[]"):
-		return "nil"
-	case strings.Contains(s, "*"):
+	case strings.Contains(s, "func"),
+		strings.Contains(s, "*"),
+		strings.Contains(s, "[]"),
+		strings.Contains(s, "error"):
 		return "nil"
 	case strings.Contains(s, "int"),
 		strings.Contains(s, "float"),
@@ -152,15 +152,14 @@ func ZeroValueString(s string) string {
 		return "false"
 	case strings.Contains(s, "string"):
 		return "\"\""
-	case strings.Contains(s, "error"):
-		return "nil"
-
 	default:
 		return s + "{}"
 
 	}
 }
 
+// String returns the string representation of the interface as it should be implemented
+// I don't love panicking here but it's probably the best way to ensure that the result is always correct
 func (i *Interface) String() string {
 	data, err := format.Source([]byte(i.Implement()))
 	if err != nil {
@@ -284,6 +283,7 @@ func getFunctionName(start, end token.Pos, data []byte) string {
 
 // TODO - figure out how to actually return this... maybe send finished signatures to a channel instead of returning the function
 func GetFunctionSignatures(expr ast.Expr, data []byte) (*FunctionSignature) {
+	var lastIdent string
 	signature := &FunctionSignature{}
 	switch n := expr.(type) {
 	// the top level function
@@ -322,12 +322,22 @@ func GetFunctionSignatures(expr ast.Expr, data []byte) (*FunctionSignature) {
 		}
 
 	case *ast.Ident:
+		lastIdent = n.Name
 		if t, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
 			switch t := t.Type.(type) {
 			case *ast.InterfaceType:
 				for _, f := range t.Methods.List {
 					sig := GetFunctionSignatures(f.Type, data)
-					fmt.Printf("%+v\n",sig)
+					fmt.Println("NAME:", lastIdent)
+					for _, p := range sig.Parameters {
+						fmt.Println(p.Type)
+						fmt.Println(p.NameT(nil))
+					}
+
+					for _, r := range sig.ReturnValues {
+						fmt.Println(r.Type)
+						fmt.Println(r.Name)
+					}
 				}
 			}
 		}

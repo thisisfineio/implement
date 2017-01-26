@@ -28,3 +28,8 @@ type TestInterface interface {
 type IgnoredInterface interface {
 	IgnoredFunction(i int) *Struct
 }
+
+type Embedded interface {
+	TestInterface
+}
+

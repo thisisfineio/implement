@@ -88,6 +88,7 @@ var (
 
 func init(){
 	m["TestInterface"] = "Implementation"
+	m["Embedded"] = "EmbedImplementation"
 }
 
 func TestInspect(t *testing.T) {
